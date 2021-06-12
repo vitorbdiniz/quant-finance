@@ -5,22 +5,53 @@ import os
 from selenium import webdriver
 
 
+def all_compositions(update=True, persist=False):
+    all_indexes = get_all_indexes(update=update)
+
+    stocks = set()
+    for index in all_indexes.keys():
+        if all_indexes[index] is not None:
+            for ticker in all_indexes[index]['ticker'].values:
+                stocks.add(ticker)
+
+    joined_df = pd.DataFrame(columns= ['company']+list(all_indexes.keys()), index=stocks )
+
+    for index in all_indexes.keys():
+        if all_indexes[index] is not None:
+            for i in range(all_indexes[index].shape[0]):
+                joined_df['company'].loc[ all_indexes[index]['ticker'].iloc[i] ] = all_indexes[index]['stock'].iloc[i]
+                joined_df[index].loc[ all_indexes[index]['ticker'].iloc[i] ] = all_indexes[index]['composition'].iloc[i]
+    if persist:
+        joined_df.to_csv('./data/index/compositions.csv')
+    
+    return joined_df
+
+def get_all_indexes(update=True):
+    '''
+
+    '''
+    indexes = ['IBOV','IBXX','IBRA','IGCX','ITAG','IGNM','IGCT','IDIV','MLCX','SMLL','IVBX','ICO2','ISEE','ICON','IEEX','IFNC','IMOB','INDX','IMAT','UTIL','IFIX','BDRX']
+
+    compositions = {index : get_benchmark(benchmark=index, update=update) for index in indexes}
+    return compositions         
+    
+
 def get_benchmark(benchmark='IBOV', update=True):
     '''
         benchmark: {'IBOV', 'SMLL', 'IBRA', 'IBXX'} # 'IBOV' -> Ibovespa, 'SMLL' -> Small Caps, 'IBRA' -> IBRA, 'IBXX' -> IBrX100
+        update: boolean # if True, then fetch composition in B3's website, else load the persisted data
+    
     '''
     benchmark=benchmark.upper()
-    if benchmark not in {'IBOV', 'SMLL', 'IBRA', 'IBXX'}:
-        raise ValueError(f"Valor recebido: '{benchmark}' | Valores esperados: {{'IBOV', 'SMLL', 'IBRA', 'IBXX'}}")
     
-    path = os.path.join(os.path.relpath('.'),'data', 'benchmark')
+    path = os.path.join(os.path.relpath('.'),'data', 'index')
     make_dir(path)
     path = os.path.realpath(path)
 
     if update:
         df = download_benchmark(benchmark, path=path)
     else:
-        df = get_file(path)
+        df = get_file(path, text=benchmark)
     return df
 
 def download_benchmark(benchmark, delete_previous=True, path=os.getcwd()):
